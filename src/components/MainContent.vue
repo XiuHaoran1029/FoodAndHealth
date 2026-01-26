@@ -2,17 +2,58 @@
 import InputBar from './InputBar.vue'
 import { Menu } from 'lucide-vue-next'
 import { useSidebarStore } from '../store/sidebar'
+import { ref, onMounted } from 'vue'
 
 const sidebarStore = useSidebarStore()
+const hasUserInteracted = ref(false)
+
+// 添加触摸事件处理
+const handleMenuClick = (event) => {
+  event.preventDefault()
+  event.stopPropagation()
+
+  // 标记用户已交互
+  if (!hasUserInteracted.value) {
+    hasUserInteracted.value = true
+  }
+
+  // 只有在用户交互后才添加触觉反馈
+  if (hasUserInteracted.value && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate(10)
+    } catch (error) {
+      // 忽略触觉反馈错误
+      console.warn('触觉反馈不可用:', error)
+    }
+  }
+
+  // 切换侧边栏状态
+  sidebarStore.toggle()
+}
+
+// 添加触摸事件监听
+onMounted(() => {
+  const menuButton = document.querySelector('.menu-button')
+  if (menuButton) {
+    // 添加触摸事件处理
+    menuButton.addEventListener('touchstart', handleMenuClick, { passive: false })
+
+    // 添加点击事件来标记用户交互
+    menuButton.addEventListener('click', () => {
+      hasUserInteracted.value = true
+    })
+  }
+})
 </script>
 
 <template>
   <div class="flex flex-col h-full relative">
     <!-- Header (Mobile Menu Trigger) -->
     <div class="absolute top-0 left-0 p-4 z-10 md:hidden">
-      <button 
-        @click="sidebarStore.toggle()"
-        class="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+      <button
+          @click="handleMenuClick"
+          class="menu-button p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors select-none"
+          style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
       >
         <Menu :size="24" />
       </button>
