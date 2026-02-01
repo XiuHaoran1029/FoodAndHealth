@@ -2,7 +2,9 @@
 import { Plus, Mic, Send } from 'lucide-vue-next'
 import { Camera, CameraResultType } from '@capacitor/camera'
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const inputValue = ref('')
 
 async function takePicture() {
@@ -19,14 +21,39 @@ async function takePicture() {
     console.error('Camera error:', error)
   }
 }
+// 第二步：再定义使用router的函数
+function handleClick(buttonText) {
+  console.log('点击了按钮:', buttonText)
+  if (buttonText === 'FoodRecord') {
+      router.push({ name: 'FoodRecord' })
+      console.log('路由跳转指令已发送，目标路由：FoodRecord')
+  }
+  if (buttonText === 'SnackAnalysis') {
+      router.push({ name: 'SnackAnalysis' })
+      console.log('路由跳转指令已发送，目标路由：SnackAnalysis')
+  }
+}
 </script>
 
 <template>
   <div class="w-full max-w-4xl mx-auto px-4 pb-4">
     <!-- Functional Buttons -->
     <div class="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
-      <button v-for="i in 4" :key="i" class="px-4 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 hover:border-primary/50 transition-colors whitespace-nowrap shadow-sm">
-        功能{{ i }}
+      <!-- 第一个功能按钮 -->
+      <button class="px-4 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 hover:border-primary/50 transition-colors whitespace-nowrap shadow-sm"  @click="handleClick('FoodRecord')">
+        三餐分析
+      </button>
+      <!-- 第二个功能按钮 -->
+      <button class="px-4 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 hover:border-primary/50 transition-colors whitespace-nowrap shadow-sm"  @click="handleClick('SnackAnalysis')">
+        零食分析
+      </button>
+      <!-- 第三个功能按钮 -->
+      <button class="px-4 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 hover:border-primary/50 transition-colors whitespace-nowrap shadow-sm">
+        功能三
+      </button>
+      <!-- 第四个功能按钮 -->
+      <button class="px-4 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 hover:border-primary/50 transition-colors whitespace-nowrap shadow-sm">
+        功能四
       </button>
     </div>
 
