@@ -34,4 +34,3 @@ coverage
 
 # Vitest
 __screenshots__/
-/src/router/index.js
