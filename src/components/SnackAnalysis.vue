@@ -91,18 +91,35 @@
           </div>
         </div>
 
+        <div class="space-y-3">
+          <label class="block text-sm font-medium text-gray-700">备注</label>
+          <input
+              v-model="form.name"
+              type="text"
+              placeholder="请输入备注，如：如：下午加餐薯片、追剧吃坚果"
+              class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+              required
+          />
+        </div>
+
         <!-- 提交按钮 -->
         <div class="pt-4">
           <button
               type="submit"
               class="w-full py-3.5 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 
               active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-              :disabled="!form.name || !form.type || !form.num"
+              :disabled="!form.name || !form.type || !form.num || loading"
           >
-            提交保存
+            {{ loading ? '分析中...' : '提交保存' }}
           </button>
         </div>
       </form>
+
+      <!-- AI 分析结果（需求 7.5） -->
+      <div v-if="analysisResult" class="mt-6 p-4 bg-white rounded-xl border border-gray-200 shadow-sm space-y-2">
+        <h2 class="text-base font-bold text-gray-800">AI 分析结果</h2>
+        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ analysisResult }}</p>
+      </div>
     </main>
   </div>
 </template>
@@ -111,10 +128,13 @@
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
 import { ArrowLeft, Coffee, Package } from 'lucide-vue-next'
+import { showToast } from 'vant'
+import { sendMessage } from '@/api/message'
+import { useUserStore } from '@/store/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 
-// 保留原有返回功能
 const goBack = () => {
   if (window.history.state && window.history.state.back) {
     router.back()
@@ -130,31 +150,43 @@ const form = ref({
   num: ''   // 数量（数字类型）
 })
 
+const loading = ref(false)
+const analysisResult = ref('')
+
+// type value → 中文 role 映射（需求 7.4）
+const typeLabel = { drink: '饮品', bag: '袋装零食' }
+
 // 表单提交处理函数
-const onSubmit = () => {
-  // 基础校验
+const onSubmit = async () => {
   if (!form.value.name || !form.value.type || !form.value.num || form.value.num < 1) {
     return
   }
 
-  // 构造最终提交数据
-  const submitData = {
-    ...form.value,
-    unit: form.value.type === 'drink' ? 'ml' : 'g', // 自动生成单位
-    typeName: form.value.type === 'drink' ? '饮品' : '袋装零食' // 种类中文名称
+  const unit = form.value.type === 'drink' ? 'ml' : 'g'
+  const quantity = `${form.value.num}${unit}`
+
+  loading.value = true
+  analysisResult.value = ''
+  try {
+    const res = await sendMessage({
+      userId: userStore.userId,
+      conversationId: null,
+      content: form.value.name,
+      role: typeLabel[form.value.type],   // 零食类型中文（需求 7.4）
+      function_type: 'snack_analysis',    // 需求 7.3, 7.4
+      img: form.value.name,               // 零食名称（需求 7.4）
+      mimeType: quantity                  // 数量+单位（需求 7.4）
+    })
+
+    const aiContent = res?.data?.content || res?.data || ''
+    analysisResult.value = aiContent      // 显示红绿灯等级和建议（需求 7.5）
+    showToast('分析完成')
+  } catch (err) {
+    const msg = err?.message || '提交失败，请重试'
+    showToast(msg)
+  } finally {
+    loading.value = false
   }
-
-  // *************************
-  // 此处替换为你的实际业务逻辑：
-  // 如调用接口保存、存入localStorage、跳转到列表页等
-  // *************************
-  console.log('零食提交数据：', submitData)
-  
-  alert('零食添加成功！\n' + JSON.stringify(submitData, null, 2))
-
-  // 重置表单并返回
-  form.value = { name: '', type: '', num: '' }
-  router.push('/')
 }
 </script>
 

@@ -19,8 +19,35 @@ const router = createRouter({
             path: '/snack-analysis',
             name: 'SnackAnalysis',
             component: () => import('@/components/SnackAnalysis.vue')
+        },
+        {
+            path: '/medication-reminder',
+            name: 'MedicationReminder',
+            component: () => import('@/components/MedicationReminder.vue')
+        },
+        {
+            path: '/settings',
+            name: 'Settings',
+            component: () => import('@/components/Settings.vue')
+        },
+        {
+            path:'/login',
+            name:'Login',
+            component:()=>import('@/components/Login.vue')
         }
     ]
+})
+
+router.beforeEach((to, from, next) => {
+    const token = localStorage.getItem('token')
+    const publicRoutes = ['/login']
+    if (!token && !publicRoutes.includes(to.path)) {
+        next('/login')
+    } else if (token && to.path === '/login') {
+        next('/')
+    } else {
+        next()
+    }
 })
 
 export default router

@@ -89,12 +89,18 @@
             type="submit"
             class="w-full py-3.5 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 
             active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-            :disabled="!form.mealType || !form.foodName || !form.imageUrl"
+            :disabled="!form.mealType || !form.foodName || !form.imageUrl || loading"
           >
-            提交记录
+            {{ loading ? '分析中...' : '提交记录' }}
           </button>
         </div>
       </form>
+
+      <!-- AI Analysis Result -->
+      <div v-if="analysisResult" class="mt-6 p-4 bg-white rounded-xl border border-gray-200 shadow-sm space-y-2">
+        <h2 class="text-base font-bold text-gray-800">AI 分析结果</h2>
+        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ analysisResult }}</p>
+      </div>
     </main>
   </div>
 </template>
@@ -104,8 +110,13 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Camera, CameraResultType } from '@capacitor/camera'
 import { X, ArrowLeft, Camera as CameraIcon } from 'lucide-vue-next'
+import { showToast } from 'vant'
+import { sendMessage } from '@/api/message'
+import { useUserStore } from '@/store/user'
+import { fileToBase64 } from '@/utils/helper'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const mealTypes = [
   { value: 'breakfast', label: '早餐', icon: '🍳' },
@@ -116,8 +127,12 @@ const mealTypes = [
 const form = ref({
   mealType: '',
   foodName: '',
-  imageUrl: ''
+  imageUrl: '',
+  imageFile: null  // stores the blob/file for base64 conversion
 })
+
+const loading = ref(false)
+const analysisResult = ref('')
 
 const goBack = () => {
   if (window.history.state && window.history.state.back) {
@@ -133,41 +148,52 @@ const selectImage = async () => {
       resultType: CameraResultType.Uri,
       quality: 80,
       allowEditing: true,
-      width: 800, // Increased resolution slightly
+      width: 800,
       height: 800
     })
-    console.log('Image captured:', image)
     form.value.imageUrl = image.webPath
+    // Fetch the image as a blob so we can convert to base64
+    const response = await fetch(image.webPath)
+    form.value.imageFile = await response.blob()
   } catch (error) {
     console.error('图片选择失败：', error)
-    // alert('图片选择失败，请重新尝试') // Optional: remove alert for cleaner UX
   }
 }
 
 const deleteImage = () => {
   form.value.imageUrl = ''
+  form.value.imageFile = null
 }
 
-const onSubmit = () => {
-  const mealTypeLabels = {
-    breakfast: '早餐',
-    lunch: '午餐',
-    dinner: '晚餐'
+const onSubmit = async () => {
+  loading.value = true
+  analysisResult.value = ''
+  try {
+    let imgBase64 = ''
+    if (form.value.imageFile) {
+      imgBase64 = await fileToBase64(form.value.imageFile)
+    }
+
+    const res = await sendMessage({
+      userId: userStore.userId,
+      conversationId: null,
+      content: form.value.foodName,
+      role: form.value.mealType,
+      function_type: 'food_analysis',
+      img: imgBase64,
+      mimeType: ''
+    })
+
+    // Extract AI reply from response
+    const aiContent = res?.data?.content || res?.data || ''
+    analysisResult.value = aiContent
+    showToast('分析完成')
+  } catch (err) {
+    const msg = err?.message || '提交失败，请重试'
+    showToast(msg)
+  } finally {
+    loading.value = false
   }
-  
-  const submitData = {
-    mealType: mealTypeLabels[form.value.mealType],
-    foodName: form.value.foodName,
-    imageUrl: form.value.imageUrl,
-    time: new Date().toLocaleString()
-  }
-  
-  console.log('提交的记录：', submitData)
-  alert('记录提交成功！\n' + JSON.stringify(submitData, null, 2))
-  
-  // Reset form
-  form.value = { mealType: '', foodName: '', imageUrl: '' }
-  router.push('/')
 }
 </script>
 

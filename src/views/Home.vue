@@ -6,6 +6,12 @@ import { storeToRefs } from 'pinia'
 import { useMediaQuery } from '@vueuse/core'
 import { watch, onMounted, ref, computed, onUnmounted } from 'vue'
 
+const currentConversationId = ref(null)
+function handleSelectConversation(id) {
+  console.log('Selected conversation ID:', id)
+  currentConversationId.value = id
+}
+
 const sidebarStore = useSidebarStore()
 const { isOpen } = storeToRefs(sidebarStore)
 const isLargeScreen = useMediaQuery('(min-width: 768px)')
@@ -86,11 +92,12 @@ onUnmounted(() => {
         visibility: isOpen ? 'visible' : 'hidden',
         transition: 'transform 0.3s ease-in-out, visibility 0.3s ease-in-out'
       }"
+        @select-conversation="handleSelectConversation"
     />
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col h-full w-full relative transition-all duration-300">
-      <MainContent />
+      <MainContent :conversation-id="currentConversationId" />
     </div>
   </div>
 </template>
