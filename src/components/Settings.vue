@@ -345,30 +345,60 @@ const removeAvoidFood = (value) => {
 
 const saveProfile = async () => {
   try {
-    let avatarBase64 = userStore.avatar || ''
+    let finalAvatar = userStore.avatar; // 默认使用当前存储的头像
+
+    // 只有当用户选择了新文件时，才进行转换和更新
     if (avatarFile.value) {
-      avatarBase64 = await fileToBase64(avatarFile.value)
+      try {
+        finalAvatar = await fileToBase64(avatarFile.value);
+        // 可选：调试打印，确认转换后的字符串长度是否正常
+        // console.log('New Avatar Length:', finalAvatar.length);
+      } catch (e) {
+        console.error('图片转换失败', e);
+        showToast('图片处理失败，请重试');
+        return;
+      }
+    } else {
+      // 如果没有选择新图片，finalAvatar 保持为 userStore.avatar
+      // 如果 userStore.avatar 也是空的，说明用户本来就没有头像，这通常是合法的
+      console.log('未更换头像，使用现有头像或空值');
     }
 
-    const sickStr = profileForm.value.diseases.join('|#|')
-    const tabooStr = avoidFoods.value.join('|#|')
+    const sickStr = profileForm.value.diseases.join('|#|');
+    const tabooStr = avoidFoods.value.join('|#|');
 
-    await updateSetting({
+    // 构造提交数据
+    const payload = {
       userid: userStore.userId,
       username: profileForm.value.username,
       sick: sickStr,
       taboo: tabooStr,
-      avatar: avatarBase64
-    })
+      // 关键点：确保这里传的是最终确定的值
+      avatar: finalAvatar
+    };
 
-    userStore.username = profileForm.value.username
-    userStore.sick = sickStr
-    userStore.taboo = tabooStr
-    userStore.avatar = avatarBase64
+    // 调试：在发送前打印查看
+    console.log('Submitting payload:', payload);
 
-    showToast('设置已保存')
+    // 如果后端严格要求不能传空字符串表示“不修改”，你可能需要在这里删除该字段
+    // if (!avatarFile.value) { delete payload.avatar; }
+
+    await updateSetting(payload);
+
+    // 更新本地 Store
+    userStore.username = profileForm.value.username;
+    userStore.sick = sickStr;
+    userStore.taboo = tabooStr;
+    // 只有当确实有新值（或者是原本就有值）时才更新，避免意外清空
+    userStore.avatar = finalAvatar;
+
+    const oldToken =userStore.token;
+    localStorage.setItem("token" ,updateToken(oldToken,finalAvatar));
+
+    showToast('设置已保存');
   } catch (error) {
-    showToast(error?.message || '保存失败')
+    console.error(error);
+    showToast(error?.message || '保存失败');
   }
 }
 
@@ -395,6 +425,23 @@ const changePassword = async () => {
     showToast(error?.message || '修改密码失败')
   }
 }
+
+
+function updateToken(rawToken,avatar) {
+
+  const decodedOuter = rawToken;
+
+  const SEPARATOR = '|#|';
+
+  const parts = decodedOuter.split(SEPARATOR);
+
+  if (parts.length !== 3) {
+    throw new Error(`Token 格式错误：期望 3 个部分，实际得到 ${parts.length}`);
+  }
+
+  return parts[0]+"|#|"+parts[1]+"|#|"+avatar;
+}
+
 
 const handleLogout = () => {
   userStore.logout()
