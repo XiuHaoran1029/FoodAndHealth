@@ -42,11 +42,6 @@ export function normalizeMessage(msg) {
     id: msg.id || msg.sequence || Date.now() + Math.random()
   }
   
-  console.log('Message normalized:', {
-    original: msg,
-    normalized: normalized
-  })
-  
   return normalized
 }
 
@@ -78,11 +73,10 @@ export function extractAndNormalizeMessages(apiResponse) {
                   apiResponse.data.records || 
                   []
   
-  console.log('Raw messages from API:', records)
+
   
   const normalizedMessages = normalizeMessages(records)
-  
-  console.log('Normalized messages:', normalizedMessages)
+
   
   return normalizedMessages
 }
@@ -111,11 +105,5 @@ export function processAIResponse(aiResponse) {
     content: content,
     sequence: Date.now() + 1
   })
-  
-  console.log('AI response processed:', {
-    original: aiResponse,
-    processed: normalizedMessage
-  })
-  
   return normalizedMessage
 }

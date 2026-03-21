@@ -49,12 +49,30 @@ async function loadConversations() {
 }
 async function handleNewConversation() {
   try {
-    const res = await createConversation(userStore.userId, '新对话')
-    const newConv = res.data
-    conversations.value.unshift(newConv)
-    emit('select-conversation', newConv.id)
+    // 1. 获取当前时间对象
+    const now = new Date();
+
+    // 2. 格式化时间 (例如: 2026-03-21 22:20)
+    // 注意：月份需要 +1，分钟和小时如果小于10建议补0
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+
+    const timeString = `${year}-${month}-${day} ${hours}:${minutes}`;
+
+    // 3. 组合名称
+    const conversationName = `对话—${timeString}`;
+
+    // 4. 调用接口
+    const res = await createConversation(userStore.userId, conversationName);
+
+    const newConv = res.data;
+    conversations.value.unshift(newConv);
+    emit('select-conversation', newConv.id);
   } catch (e) {
-    showToast(e.message || '创建对话失败')
+    showToast(e.message || '创建对话失败');
   }
 }
 

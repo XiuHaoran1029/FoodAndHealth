@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { sendMessage } from '@/api/message'
 import { useUserStore } from '@/store/user'
-import { fileToBase64 } from '@/utils/helper'
+import { fileToBase64, compressImage } from '@/utils/helper'
 import { processAIResponse } from '@/utils/messageNormalization'
 
 const props = defineProps({
@@ -42,8 +42,11 @@ async function handleFileChange(event) {
     return
   }
   try {
-    const base64 = await fileToBase64(file)
-    attachedImage.value = { file, base64, preview: base64 }
+    // Get compressed version for upload
+    const compressedBase64 = await compressImage(file)
+    // Get original version for preview
+    const previewBase64 = await fileToBase64(file)
+    attachedImage.value = { file, base64: compressedBase64, preview: previewBase64 }
   } catch (e) {
     showToast('图片处理失败')
   }
@@ -94,10 +97,11 @@ async function handleSend() {
     if (aiMsg) {
       console.log('AI reply:', aiMsg)
       
-      // 使用工具函数处理AI回复
+      // ✅ 修复: 处理AI回复，通过role字段区分消息类型
       const processedAIReply = processAIResponse(aiMsg)
       
       if (processedAIReply) {
+        // 直接发送AI消息，MainContent会根据role字段正确处理
         emit('message-sent', processedAIReply)
       } else {
         console.warn('Failed to process AI reply:', aiMsg)

@@ -5,12 +5,23 @@ import { useSidebarStore } from '../store/sidebar'
 import { storeToRefs } from 'pinia'
 import { useMediaQuery } from '@vueuse/core'
 import { watch, onMounted, ref, computed, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 
+const route = useRoute()
 const currentConversationId = ref(null)
+
 function handleSelectConversation(id) {
-  console.log('Selected conversation ID:', id)
+  console.log('[Home] Selected conversation ID:', id)
   currentConversationId.value = id
 }
+
+// 监听路由参数中的 conversationId
+watch(() => route.query.conversationId, (newId) => {
+  if (newId) {
+    console.log('[Home] 路由参数中有 conversationId:', newId)
+    handleSelectConversation(parseInt(newId))
+  }
+}, { immediate: true })
 
 const sidebarStore = useSidebarStore()
 const { isOpen } = storeToRefs(sidebarStore)

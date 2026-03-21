@@ -3,7 +3,7 @@ import router from '@/router'
 
 const http = axios.create({
   baseURL: 'http://localhost:8080',
-  timeout: 30000
+  timeout: 120000
 })
 
 // 请求拦截器：自动附加 Token

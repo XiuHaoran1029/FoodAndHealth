@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-gray-50 flex flex-col">
     <!-- Header -->
     <header class="bg-white border-b border-gray-100 px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
-      <button 
+      <button
         class="p-2 -ml-2 hover:bg-gray-100 rounded-full text-gray-600 transition-colors"
         @click="goBack"
       >
@@ -11,15 +11,15 @@
       <h1 class="text-lg font-bold text-gray-800 flex-1 text-center pr-8">三餐分析</h1>
     </header>
 
-    <!-- Main Content -->
+    <!-- 表单区域 -->
     <main class="flex-1 p-4 max-w-lg mx-auto w-full">
       <form class="space-y-6" @submit.prevent="onSubmit">
         <!-- 1. Meal Type Selection -->
         <div class="space-y-3">
           <label class="block text-sm font-medium text-gray-700">餐型选择</label>
           <div class="grid grid-cols-3 gap-3">
-            <label 
-              v-for="type in mealTypes" 
+            <label
+              v-for="type in mealTypes"
               :key="type.value"
               class="relative cursor-pointer group"
             >
@@ -56,13 +56,13 @@
         <!-- 3. Image Upload -->
         <div class="space-y-3">
           <label class="block text-sm font-medium text-gray-700">食物图片</label>
-          
+
           <!-- Image Preview -->
           <div v-if="form.imageUrl" class="relative w-full aspect-square sm:aspect-video rounded-xl overflow-hidden shadow-sm border border-gray-200 group">
             <img :src="form.imageUrl" alt="食物预览" class="w-full h-full object-cover" />
             <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
-            <button 
-              type="button" 
+            <button
+              type="button"
               class="absolute top-3 right-3 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 backdrop-blur-sm transition-colors"
               @click="deleteImage"
             >
@@ -71,9 +71,9 @@
           </div>
 
           <!-- Upload Button -->
-          <button 
+          <button
             v-else
-            type="button" 
+            type="button"
             class="w-full aspect-video border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400
             hover:border-primary hover:text-primary hover:bg-primary/5 transition-all gap-3 bg-white"
             @click="selectImage"
@@ -87,7 +87,7 @@
         <div class="pt-4">
           <button
             type="submit"
-            class="w-full py-3.5 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 
+            class="w-full py-3.5 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30
             active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
             :disabled="!form.mealType || !form.foodName || !form.imageUrl || loading"
           >
@@ -95,12 +95,6 @@
           </button>
         </div>
       </form>
-
-      <!-- AI Analysis Result -->
-      <div v-if="analysisResult" class="mt-6 p-4 bg-white rounded-xl border border-gray-200 shadow-sm space-y-2">
-        <h2 class="text-base font-bold text-gray-800">AI 分析结果</h2>
-        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ analysisResult }}</p>
-      </div>
     </main>
   </div>
 </template>
@@ -112,8 +106,9 @@ import { Camera, CameraResultType } from '@capacitor/camera'
 import { X, ArrowLeft, Camera as CameraIcon } from 'lucide-vue-next'
 import { showToast } from 'vant'
 import { sendMessage } from '@/api/message'
+import { createConversation } from '@/api/conversation'
 import { useUserStore } from '@/store/user'
-import { fileToBase64 } from '@/utils/helper'
+import { fileToBase64, compressImage } from '@/utils/helper'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -132,7 +127,6 @@ const form = ref({
 })
 
 const loading = ref(false)
-const analysisResult = ref('')
 
 const goBack = () => {
   if (window.history.state && window.history.state.back) {
@@ -142,8 +136,39 @@ const goBack = () => {
   }
 }
 
+function getMealTypeLabel(value) {
+  const type = mealTypes.find(t => t.value === value)
+  return type ? type.label : ''
+}
+
+async function getOrCreateFoodAnalysisConversation() {
+  try {
+    // 生成唯一的对话标题（包含餐型、食物名称和时间）
+    const mealTypeLabel = getMealTypeLabel(form.value.mealType)
+    const timestamp = new Date().toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    const conversationTitle = `${mealTypeLabel} - ${form.value.foodName} (${timestamp})`
+
+    // 每次都创建新会话
+    console.log('[FoodRecord] 创建新的对话:', conversationTitle)
+    const createRes = await createConversation(userStore.userId, conversationTitle)
+    console.log('[FoodRecord] 新会话创建成功:', createRes.data.id)
+    return createRes.data.id
+  } catch (e) {
+    console.error('[FoodRecord] 创建会话失败:', e)
+    throw new Error('无法获取会话')
+  }
+}
+
 const selectImage = async () => {
   try {
+    showToast('正在处理图片...')
+    
+    // 1. 获取图片
     const image = await Camera.getPhoto({
       resultType: CameraResultType.Uri,
       quality: 80,
@@ -151,12 +176,36 @@ const selectImage = async () => {
       width: 800,
       height: 800
     })
-    form.value.imageUrl = image.webPath
-    // Fetch the image as a blob so we can convert to base64
+    
+    console.log('[FoodRecord] 图片选择成功:', image.webPath)
+    
+    // 2. 将图片转为 Blob
     const response = await fetch(image.webPath)
-    form.value.imageFile = await response.blob()
+    const originalBlob = await response.blob()
+    console.log('[FoodRecord] 原始图片大小:', (originalBlob.size / 1024).toFixed(2), 'KB')
+    
+    // 3. 压缩图片
+    console.log('[FoodRecord] 开始压缩图片...')
+    const compressedResult = await compressImage(originalBlob, {
+      maxWidth: 640,
+      maxHeight: 640,
+      minSize: 50,
+      maxSize: 100
+    })
+    
+    // 4. 保存压缩后的图片
+    form.value.imageFile = compressedResult.blob
+    
+    // 5. 将压缩后的 Blob 转为预览 URL
+    form.value.imageUrl = URL.createObjectURL(compressedResult.blob)
+    
+    console.log('[FoodRecord] 图片压缩完成')
+    
+    // 6. 显示压缩提示
+    showToast(`图片已压缩：${compressedResult.compressedSize.toFixed(0)} KB（节省 ${compressedResult.ratio}%）`)
   } catch (error) {
-    console.error('图片选择失败：', error)
+    console.error('[FoodRecord] 图片选择失败：', error)
+    showToast('图片处理失败')
   }
 }
 
@@ -166,33 +215,59 @@ const deleteImage = () => {
 }
 
 const onSubmit = async () => {
+  console.log('[FoodRecord] onSubmit 开始', { form: form.value })
+
   loading.value = true
-  analysisResult.value = ''
+
   try {
+    // 1. 获取图片 Base64
     let imgBase64 = ''
     if (form.value.imageFile) {
+      console.log('[FoodRecord] 开始转换图片为 Base64')
       imgBase64 = await fileToBase64(form.value.imageFile)
+      console.log('[FoodRecord] 图片转换完成，长度:', imgBase64?.length)
     }
 
-    const res = await sendMessage({
+    // 2. 创建新对话
+    console.log('[FoodRecord] 准备创建新对话')
+    const conversationId = await getOrCreateFoodAnalysisConversation()
+    console.log('[FoodRecord] 对话 ID:', conversationId)
+
+    // 3. 调用 AI 分析 API
+    const apiPayload = {
       userId: userStore.userId,
-      conversationId: null,
+      conversationId: conversationId,
       content: form.value.foodName,
       role: form.value.mealType,
       function_type: 'food_analysis',
       img: imgBase64,
       mimeType: ''
+    }
+    console.log('[FoodRecord] 发送 API 请求')
+
+    const res = await sendMessage(apiPayload)
+    console.log('[FoodRecord] API 响应:', res)
+
+    // 4. 跳转到主页面并传递 conversationId
+    console.log('[FoodRecord] 跳转到主页面，conversationId:', conversationId)
+    router.push({
+      name: 'Home',
+      query: { conversationId }
     })
 
-    // Extract AI reply from response
-    const aiContent = res?.data?.content || res?.data || ''
-    analysisResult.value = aiContent
     showToast('分析完成')
   } catch (err) {
-    const msg = err?.message || '提交失败，请重试'
-    showToast(msg)
+    console.error('[FoodRecord] onSubmit 错误:', err)
+    console.error('[FoodRecord] 错误详情:', {
+      message: err?.message,
+      response: err?.response?.data,
+      status: err?.response?.status
+    })
+
+    showToast(`提交失败：${err?.response?.data?.message || err?.message || '请重试'}`)
   } finally {
     loading.value = false
+    console.log('[FoodRecord] onSubmit 结束，loading 设为 false')
   }
 }
 </script>
