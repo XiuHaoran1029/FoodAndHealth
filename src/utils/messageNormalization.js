@@ -72,13 +72,10 @@ export function extractAndNormalizeMessages(apiResponse) {
                   apiResponse.data.content || 
                   apiResponse.data.records || 
                   []
-  
 
-  
-  const normalizedMessages = normalizeMessages(records)
 
-  
-  return normalizedMessages
+
+  return normalizeMessages(records)
 }
 
 /**

@@ -20,6 +20,9 @@ watch(() => route.query.conversationId, (newId) => {
   if (newId) {
     console.log('[Home] 路由参数中有 conversationId:', newId)
     handleSelectConversation(parseInt(newId))
+  } else {
+    // 当路由参数中没有 conversationId 时，重置为 null
+    currentConversationId.value = null
   }
 }, { immediate: true })
 

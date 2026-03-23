@@ -103,6 +103,15 @@ function scrollToBottom() {
 // 加载消息
 async function loadMessages(conversationId) {
   if (!conversationId) return
+  console.log('[loadMessages] conversationId:', conversationId)
+  
+  if (!conversationId || conversationId <= 0) {
+    console.error('[loadMessages] Invalid conversationId:', conversationId)
+    showToast('请选择有效的对话')
+    messages.value = []
+    return
+  }
+  
   clearAllStreaming() // 切换会话必须清空旧流
   stopWaiting() // 停止等待动画
   messages.value = []
@@ -110,7 +119,7 @@ async function loadMessages(conversationId) {
   try {
     const res = await getMessageList(conversationId, userStore.userId)
     const normalizedMessages = extractAndNormalizeMessages(res)
-
+    console.log('[loadMessages] 获取消息成功:', res)
     messages.value = normalizedMessages.map(msg => ({
       ...msg,
       fullContent: msg.content || '',
@@ -121,8 +130,13 @@ async function loadMessages(conversationId) {
     await nextTick()
     scrollToBottom()
   } catch (e) {
-    console.error('Load messages error:', e)
-    showToast(e.message || '加载消息失败')
+    console.error('[loadMessages] 加载消息失败:', e)
+    if (e.message && e.message.includes('对话不存在') || e.message.includes('无权限')) {
+      //showToast('对话不存在或您没有权限访问')
+      messages.value = []
+    } else {
+      showToast(e.message || '加载消息失败')
+    }
   }
 }
 

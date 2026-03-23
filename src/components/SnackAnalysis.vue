@@ -94,7 +94,7 @@
         <div class="space-y-3">
           <label class="block text-sm font-medium text-gray-700">备注</label>
           <input
-              v-model="form.name"
+              v-model="form.remark"
               type="text"
               placeholder="请输入备注，如：如：下午加餐薯片、追剧吃坚果"
               class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-800 placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
@@ -130,6 +130,8 @@ import { ref } from 'vue'
 import { ArrowLeft, Coffee, Package } from 'lucide-vue-next'
 import { showToast } from 'vant'
 import { sendMessage } from '@/api/message'
+// 引入创建会话的 API (参考代码1)
+import { createConversation } from '@/api/conversation'
 import { useUserStore } from '@/store/user'
 
 const router = useRouter()
@@ -143,49 +145,113 @@ const goBack = () => {
   }
 }
 
-// 表单核心数据：绑定视图，type联动单位
+// 表单核心数据
 const form = ref({
   name: '', // 零食名称
   type: '', // 种类：drink(饮品)/bag(袋装零食)
-  num: ''   // 数量（数字类型）
+  num: '' , // 数量
+  remark:''
 })
 
 const loading = ref(false)
 const analysisResult = ref('')
 
-// type value → 中文 role 映射（需求 7.4）
-const typeLabel = { drink: '饮品', bag: '袋装零食' }
+// type value → 中文 label 映射
+const typeConfig = {
+  drink: { label: '饮品', icon: Coffee },
+  bag: { label: '袋装零食', icon: Package }
+}
+
+const getTypeLabel = (value) => {
+  return typeConfig[value]?.label || ''
+}
+
+// 创建零食分析会话 (参考代码1的逻辑)
+async function getOrCreateSnackAnalysisConversation() {
+  try {
+    const typeLabel = getTypeLabel(form.value.type)
+    const timestamp = new Date().toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    // 生成标题：类型 - 名称 (时间)
+    const conversationTitle = `${typeLabel} - ${form.value.name} (${timestamp})`
+
+    console.log('[SnackRecord] 创建新的对话:', conversationTitle)
+    const createRes = await createConversation(userStore.userId, conversationTitle)
+    console.log('[SnackRecord] 新会话创建成功:', createRes.data.id)
+    return createRes.data.id
+  } catch (e) {
+    console.error('[SnackRecord] 创建会话失败:', e)
+    throw new Error('无法获取会话')
+  }
+}
 
 // 表单提交处理函数
 const onSubmit = async () => {
-  if (!form.value.name || !form.value.type || !form.value.num || form.value.num < 1) {
+  // 基础校验
+  if (!form.value.name || !form.value.type || !form.value.num || Number(form.value.num) < 1) {
+    showToast('请填写完整的零食信息')
     return
   }
 
-  const unit = form.value.type === 'drink' ? 'ml' : 'g'
-  const quantity = `${form.value.num}${unit}`
-
   loading.value = true
   analysisResult.value = ''
+
   try {
-    const res = await sendMessage({
+    // 1. 准备数量单位字符串 (原逻辑保留)
+    const unit = form.value.type === 'drink' ? 'ml' : 'g'
+    const quantityStr = `${form.value.num}`
+
+    // 2. 创建新会话 (参考代码1的核心逻辑)
+    console.log('[SnackRecord] 准备创建新对话')
+    const conversationId = await getOrCreateSnackAnalysisConversation()
+    console.log('[SnackRecord] 对话 ID:', conversationId)
+
+    // 3. 构建 API 请求载荷
+    // 【重要】严格保留原目标代码的字段赋值逻辑，未做语义修正
+    const apiPayload = {
       userId: userStore.userId,
-      conversationId: null,
-      content: form.value.name,
-      role: typeLabel[form.value.type],   // 零食类型中文（需求 7.4）
-      function_type: 'snack_analysis',    // 需求 7.3, 7.4
-      img: form.value.name,               // 零食名称（需求 7.4）
-      mimeType: quantity                  // 数量+单位（需求 7.4）
+      conversationId: conversationId,       // 使用新生成的会话ID
+      content: form.value.name,             // 原逻辑：内容填名称
+      role: getTypeLabel(form.value.type),  // 原逻辑：角色填中文类型
+      function_type: 'snack_analysis',
+      img: form.value.remark,                 // 【保留原逻辑】将备注放入 img 字段
+      mimeType: quantityStr.valueOf()                 // 【保留原逻辑】将数量+单位放入 mimeType 字段
+    }
+
+    console.log('[SnackRecord] 发送 API 请求:', apiPayload)
+
+    const res = await sendMessage(apiPayload)
+    console.log('[SnackRecord] API 响应:', res)
+
+    // 4. 处理结果
+    analysisResult.value = res?.data?.content || res?.data || ''
+
+    showToast('分析完成')
+
+    // 5. 跳转到主页面并传递 conversationId (参考代码1)
+    await router.push({
+      name: 'Home',
+      query: { conversationId }
     })
 
-    const aiContent = res?.data?.content || res?.data || ''
-    analysisResult.value = aiContent      // 显示红绿灯等级和建议（需求 7.5）
-    showToast('分析完成')
   } catch (err) {
-    const msg = err?.message || '提交失败，请重试'
-    showToast(msg)
+    // 参考代码1的详细错误日志
+    console.error('[SnackRecord] onSubmit 错误:', err)
+    console.error('[SnackRecord] 错误详情:', {
+      message: err?.message,
+      response: err?.response?.data,
+      status: err?.response?.status
+    })
+
+    const errorMsg = err?.response?.data?.message || err?.message || '提交失败，请重试'
+    showToast(errorMsg)
   } finally {
     loading.value = false
+    console.log('[SnackRecord] onSubmit 结束')
   }
 }
 </script>

@@ -7,6 +7,7 @@ import { sendMessage } from '@/api/message'
 import { useUserStore } from '@/store/user'
 import { fileToBase64, compressImage } from '@/utils/helper'
 import { processAIResponse } from '@/utils/messageNormalization'
+import { sendReport } from '@/utils/reportAnalysis'
 
 const props = defineProps({
   conversationId: {
@@ -28,6 +29,7 @@ function handleClick(buttonText) {
   if (buttonText === 'FoodRecord') router.push({ name: 'FoodRecord' })
   if (buttonText === 'SnackAnalysis') router.push({ name: 'SnackAnalysis' })
   if (buttonText === 'MedicationReminder') router.push({ name: 'MedicationReminder' })
+  if (buttonText === 'ReportAnalysis') sendReport()
 }
 
 function triggerFileInput() {
@@ -37,8 +39,8 @@ function triggerFileInput() {
 async function handleFileChange(event) {
   const file = event.target.files?.[0]
   if (!file) return
-  if (file.size > 5 * 1024 * 1024) {
-    showToast('图片大小不能超过5MB')
+  if (file.size > 10* 1024 * 1024) {
+    showToast('图片大小不能超过10MB')
     return
   }
   try {
@@ -137,8 +139,8 @@ function handleKeydown(event) {
       <button class="px-4 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 hover:border-primary/50 transition-colors whitespace-nowrap shadow-sm" @click="handleClick('MedicationReminder')">
         用药提醒
       </button>
-      <button class="px-4 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 hover:border-primary/50 transition-colors whitespace-nowrap shadow-sm">
-        功能四
+      <button class="px-4 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 hover:border-primary/50 transition-colors whitespace-nowrap shadow-sm" @click="handleClick('ReportAnalysis')">
+        报告分析
       </button>
     </div>
 

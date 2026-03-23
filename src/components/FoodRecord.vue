@@ -192,13 +192,48 @@ const selectImage = async () => {
       minSize: 50,
       maxSize: 100
     })
-    
-    // 4. 保存压缩后的图片
-    form.value.imageFile = compressedResult.blob
-    
-    // 5. 将压缩后的 Blob 转为预览 URL
-    form.value.imageUrl = URL.createObjectURL(compressedResult.blob)
-    
+
+    let finalBlob;
+
+// 判断返回类型：如果是字符串 (Base64)，则转换为 Blob
+    if (typeof compressedResult === 'string') {
+      console.log('[FoodRecord] 检测到返回的是 Base64 字符串，正在转换...');
+
+      // 辅助函数：Base64 转 Blob
+      const base64ToBlob = (base64Data, contentType = 'image/jpeg') => {
+        const byteString = atob(base64Data.split(',')[1]); // 去掉 "data:image/...;base64," 前缀
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        return new Blob([ab], { type: contentType });
+      };
+
+      finalBlob = base64ToBlob(compressedResult);
+    }
+// 如果返回的就是 Blob (以防万一)
+    else if (compressedResult instanceof Blob) {
+      console.log('[FoodRecord] 检测到返回的是 Blob 对象');
+      finalBlob = compressedResult;
+    }
+// 如果返回的是对象且包含 blob 属性 (兼容旧逻辑)
+    else if (compressedResult && compressedResult.blob) {
+      console.log('[FoodRecord] 检测到返回的是 { blob: ... } 对象');
+      finalBlob = compressedResult.blob;
+    }
+    else {
+      console.error('[FoodRecord] 无法识别的返回格式:', compressedResult);
+      showToast('图片处理失败：格式错误');
+      return;
+    }
+
+// 现在 finalBlob 一定是有效的 Blob 对象了
+    form.value.imageFile = finalBlob;
+
+// 5. 将压缩后的 Blob 转为预览 URL
+    form.value.imageUrl = URL.createObjectURL(finalBlob);
+
     console.log('[FoodRecord] 图片压缩完成')
     
     // 6. 显示压缩提示
@@ -250,9 +285,9 @@ const onSubmit = async () => {
 
     // 4. 跳转到主页面并传递 conversationId
     console.log('[FoodRecord] 跳转到主页面，conversationId:', conversationId)
-    router.push({
+    await router.push({
       name: 'Home',
-      query: { conversationId }
+      query: {conversationId}
     })
 
     showToast('分析完成')
