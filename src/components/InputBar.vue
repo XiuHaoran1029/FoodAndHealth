@@ -22,6 +22,7 @@ const router = useRouter()
 const userStore = useUserStore()
 const inputValue = ref('')
 const isSending = ref(false)
+const isReportAnalyzing = ref(false)
 const attachedImage = ref(null)   // { file, base64, preview }
 const fileInput = ref(null)
 
@@ -29,7 +30,12 @@ function handleClick(buttonText) {
   if (buttonText === 'FoodRecord') router.push({ name: 'FoodRecord' })
   if (buttonText === 'SnackAnalysis') router.push({ name: 'SnackAnalysis' })
   if (buttonText === 'MedicationReminder') router.push({ name: 'MedicationReminder' })
-  if (buttonText === 'ReportAnalysis') sendReport()
+  if (buttonText === 'ReportAnalysis') {
+    isReportAnalyzing.value = true
+    sendReport().finally(() => {
+      isReportAnalyzing.value = false
+    })
+  }
 }
 
 function triggerFileInput() {
@@ -128,6 +134,13 @@ function handleKeydown(event) {
 
 <template>
   <div class="w-full max-w-4xl mx-auto px-4 pb-4">
+    <!-- Overlay for ReportAnalysis -->
+    <Teleport to="body">
+      <div
+        v-if="isReportAnalyzing"
+        class="fixed inset-0 bg-black/40 z-[2000] pointer-events-none"
+      ></div>
+    </Teleport>
     <!-- Functional Buttons -->
     <div class="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
       <button class="px-4 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 hover:border-primary/50 transition-colors whitespace-nowrap shadow-sm" @click="handleClick('FoodRecord')">

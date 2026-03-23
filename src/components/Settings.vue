@@ -63,23 +63,23 @@
           <div class="space-y-2">
             <label class="block text-sm font-medium text-gray-700">患病名称</label>
             
-            <!-- Diseases Tags List -->
-            <div class="flex flex-wrap gap-2 mb-2" v-if="profileForm.diseases.length > 0">
-              <span
-                v-for="disease in profileForm.diseases"
-                :key="disease"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100 text-sm font-medium animate-in fade-in zoom-in duration-200"
-              >
-                {{ disease }}
-                <button
-                  type="button"
-                  class="p-0.5 hover:bg-blue-100 rounded-full transition-colors"
-                  @click="removeDisease(disease)"
-                >
-                  <X size="14" />
-                </button>
-              </span>
-            </div>
+<!-- Diseases Tags List -->
+<div class="flex flex-wrap gap-2 mb-2" v-if="profileForm.sick.length > 0">
+  <span
+    v-for="disease in profileForm.sick"
+    :key="disease"
+    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100 text-sm font-medium animate-in fade-in zoom-in duration-200"
+  >
+    {{ disease }}
+    <button
+      type="button"
+      class="p-0.5 hover:bg-blue-100 rounded-full transition-colors"
+      @click="removeDisease(disease)"
+    >
+      <X size="14" />
+    </button>
+  </span>
+</div>
 
             <!-- Add Disease Input -->
             <div class="flex gap-2">
@@ -104,41 +104,41 @@
           <div class="space-y-2">
             <label class="block text-sm font-medium text-gray-700">忌口食品</label>
             
-            <!-- Tags List -->
-            <div class="flex flex-wrap gap-2 mb-2" v-if="avoidFoods.length > 0">
-              <span
-                v-for="food in avoidFoods"
-                :key="food"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg border border-red-100 text-sm font-medium animate-in fade-in zoom-in duration-200"
-              >
-                {{ food }}
-                <button
-                  type="button"
-                  class="p-0.5 hover:bg-red-100 rounded-full transition-colors"
-                  @click="removeAvoidFood(food)"
-                >
-                  <X size="14" />
-                </button>
-              </span>
-            </div>
+<!-- Tags List -->
+<div class="flex flex-wrap gap-2 mb-2" v-if="taboo.length > 0">
+  <span
+    v-for="food in taboo"
+    :key="food"
+    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg border border-red-100 text-sm font-medium animate-in fade-in zoom-in duration-200"
+  >
+    {{ food }}
+    <button
+      type="button"
+      class="p-0.5 hover:bg-red-100 rounded-full transition-colors"
+      @click="removeTaboo(food)"
+    >
+      <X size="14" />
+    </button>
+  </span>
+</div>
             
-            <!-- Add Input -->
-            <div class="flex gap-2">
-              <input
-                v-model="newAvoidFood"
-                type="text"
-                class="flex-1 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder:text-gray-400 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                placeholder="添加忌口（按回车）"
-                @keydown.enter.prevent="addAvoidFood"
-              />
-              <button
-                type="button"
-                class="px-4 bg-primary/10 text-primary rounded-xl font-medium hover:bg-primary/20 transition-colors flex items-center justify-center"
-                @click="addAvoidFood"
-              >
-                <Plus size="20" />
-              </button>
-            </div>
+<!-- Add Input -->
+<div class="flex gap-2">
+  <input
+    v-model="newTaboo"
+    type="text"
+    class="flex-1 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 placeholder:text-gray-400 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-all transition-all"
+    placeholder="添加忌口（按回车）"
+    @keydown.enter.prevent="addTaboo"
+  />
+  <button
+    type="button"
+    class="px-4 bg-primary/10 text-primary rounded-xl font-medium hover:bg-primary/20 transition-colors flex items-center justify-center"
+    @click="addTaboo"
+  >
+    <Plus size="20" />
+  </button>
+</div>
           </div>
         </div>
 
@@ -254,20 +254,21 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, Camera, User, UserCircle, Lock, Plus, X, LogOut } from 'lucide-vue-next'
 import { showToast } from 'vant'
 import { useUserStore } from '@/store/user'
-import { updateSetting, changePassword as apiChangePassword } from '@/api/auth'
+import { getInfo, updateSetting, changePassword as apiChangePassword } from '@/api/auth'
 import { fileToBase64 } from '@/utils/helper'
+import {encryptPassword,computeSM3} from '@/utils/encrypt.js'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const profileForm = ref({
   username: '',
-  diseases: []
+  sick: []
 })
 const newDisease = ref('')
 
-const avoidFoods = ref([])
-const newAvoidFood = ref('')
+const taboo = ref([])
+const newTaboo = ref('')
 
 const showPasswordModal = ref(false)
 const passwordForm = ref({
@@ -279,12 +280,17 @@ const passwordForm = ref({
 const avatarFile = ref(null)
 const avatarPreviewUrl = ref('')
 
-onMounted(() => {
-  profileForm.value.username = userStore.username || ''
-  profileForm.value.diseases = userStore.sick ? userStore.sick.split('|#|').filter(Boolean) : []
-  avoidFoods.value = userStore.taboo ? userStore.taboo.split('|#|').filter(Boolean) : []
-  if (userStore.avatar) {
-    avatarPreviewUrl.value = userStore.avatar
+onMounted(async () => {
+  try {
+    const userInfo = await getInfo();
+    profileForm.value.username = userInfo.data.username || ''
+    profileForm.value.sick = userInfo.data.sick || []
+    taboo.value = userInfo.data.taboo || []
+    if (userInfo.data.img) {
+      avatarPreviewUrl.value = userInfo.data.img
+    }
+  } catch (error) {
+    console.error('获取用户信息失败:', error);
   }
 })
 
@@ -316,31 +322,31 @@ const onAvatarChange = (event) => {
 const addDisease = () => {
   const value = newDisease.value.trim()
   if (!value) return
-  if (profileForm.value.diseases.includes(value)) {
+  if (profileForm.value.sick.includes(value)) {
     newDisease.value = ''
     return
   }
-  profileForm.value.diseases = [...profileForm.value.diseases, value].slice(0, 20)
+  profileForm.value.sick = [...profileForm.value.sick, value].slice(0, 20)
   newDisease.value = ''
 }
 
 const removeDisease = (value) => {
-  profileForm.value.diseases = profileForm.value.diseases.filter((item) => item !== value)
+  profileForm.value.sick = profileForm.value.sick.filter((item) => item !== value)
 }
 
-const addAvoidFood = () => {
-  const value = newAvoidFood.value.trim()
+const addTaboo = () => {
+  const value = newTaboo.value.trim()
   if (!value) return
-  if (avoidFoods.value.includes(value)) {
-    newAvoidFood.value = ''
+  if (taboo.value.includes(value)) {
+    newTaboo.value = ''
     return
   }
-  avoidFoods.value = [...avoidFoods.value, value].slice(0, 20)
-  newAvoidFood.value = ''
+  taboo.value = [...taboo.value, value].slice(0, 20)
+  newTaboo.value = ''
 }
 
-const removeAvoidFood = (value) => {
-  avoidFoods.value = avoidFoods.value.filter((item) => item !== value)
+const removeTaboo = (value) => {
+  taboo.value = taboo.value.filter((item) => item !== value)
 }
 
 const saveProfile = async () => {
@@ -364,15 +370,12 @@ const saveProfile = async () => {
       console.log('未更换头像，使用现有头像或空值');
     }
 
-    const sickStr = profileForm.value.diseases.join('|#|');
-    const tabooStr = avoidFoods.value.join('|#|');
-
-    // 构造提交数据
+    // 构造提交数据 - 使用数组格式
     const payload = {
       userid: userStore.userId,
       username: profileForm.value.username,
-      sick: sickStr,
-      taboo: tabooStr,
+      sick: profileForm.value.sick,
+      taboo: taboo.value,
       // 关键点：确保这里传的是最终确定的值
       avatar: finalAvatar
     };
@@ -387,8 +390,8 @@ const saveProfile = async () => {
 
     // 更新本地 Store
     userStore.username = profileForm.value.username;
-    userStore.sick = sickStr;
-    userStore.taboo = tabooStr;
+    userStore.sick = profileForm.value.sick;
+    userStore.taboo = taboo.value;
     // 只有当确实有新值（或者是原本就有值）时才更新，避免意外清空
     userStore.avatar = finalAvatar;
 
@@ -412,12 +415,15 @@ const changePassword = async () => {
     return
   }
 
+  const payload = {
+    userid: userStore.userId,
+    old_password: encryptPassword(computeSM3(passwordForm.value.currentPassword)),
+    new_password: encryptPassword(computeSM3(passwordForm.value.newPassword))
+
+  }
+
   try {
-    await apiChangePassword(
-      userStore.userId,
-      passwordForm.value.currentPassword,
-      passwordForm.value.newPassword
-    )
+    await apiChangePassword(payload);
     showToast('密码修改成功')
     passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
     showPasswordModal.value = false
@@ -427,7 +433,7 @@ const changePassword = async () => {
 }
 
 
-function updateToken(rawToken,avatar) {
+function updateToken(rawToken) {
 
   const decodedOuter = rawToken;
 
@@ -435,11 +441,11 @@ function updateToken(rawToken,avatar) {
 
   const parts = decodedOuter.split(SEPARATOR);
 
-  if (parts.length !== 3) {
-    throw new Error(`Token 格式错误：期望 3 个部分，实际得到 ${parts.length}`);
+  if (parts.length !== 2) {
+    throw new Error(`Token 格式错误：期望 2 个部分，实际得到 ${parts.length}`);
   }
 
-  return parts[0]+"|#|"+parts[1]+"|#|"+avatar;
+  return parts[0]+"|#|"+parts[1];
 }
 
 

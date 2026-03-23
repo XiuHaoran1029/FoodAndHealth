@@ -37,7 +37,7 @@
 **请求参数**:
 ```json
 {
-  "username": "string",  // 用户名（必填）
+  "email": "string",  // 用户名（必填）
   "password": "string"   // 密码（RSA加密后的字符串）
 }
 ```
@@ -48,7 +48,7 @@
   "code": 200,
   "message": "success",
   "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."  // JWT token
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."  // JWT token（结构UserIDBase64+"|#|"+UserNameBase64）
   }
 }
 ```
@@ -84,7 +84,7 @@
   "code": 200,
   "message": "success",
   "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."  // JWT token
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."  // JWT token（结构同注册）
   }
 }
 ```
@@ -99,11 +99,11 @@
 **请求参数**:
 ```json
 {
-  "username": "string",  // 用户名
-  "userid": 123,         // 用户ID
-  "sick": "string",      // 疾病信息（用|#|分隔）
-  "taboo": "string",     // 忌口信息（用|#|分隔）
-  "img": "string"        // 头像图片Base64
+  "username": "string",   // 用户名，字符串类型
+  "userid": 123,          // 用户ID，数字类型
+  "sick": [],             // 疾病信息，数组类型（List）
+  "taboo": [],            // 忌口信息，数组类型（List）
+  "img": "string"         // 图片Base64
 }
 ```
 
@@ -114,9 +114,9 @@
   "message": "success",
   "data": {
     "username": "string",  // 用户名
-    "sick": "string",      // 疾病信息（用|#|分隔）
-    "taboo": "string",     // 忌口信息（用|#|分隔）
-    "img": "string"
+    "sick": [],             // 疾病信息，数组类型（List）
+    "taboo": [],            // 忌口信息，数组类型（List）
+    "img": "string"        // 更新后头像图片URL，字符串类型
   }
 }
 ```
@@ -131,7 +131,7 @@
 **请求参数**:
 ```json
 {
-  "userid": 123,           // 用户ID
+  "userid": 0,           // 用户ID
   "old_password": "string", // 旧密码（RSA加密）
   "new_password": "string"  // 新密码（RSA加密）
 }
@@ -151,6 +151,45 @@
 {
   "code": 400,
   "message": "旧密码与原密码不一致或新旧密码一样",
+  "data": null
+}
+
+```
+
+### 1.5 用户信息查询
+
+**接口描述**: 查询用户设置信息（主要用于密码修改）
+
+- **请求路径**: `GET /api/auth/info`
+- **请求格式**: 仅携带请求头
+- **请求头示例:**
+```json
+{
+"Authorization": "Bearer token"  // 身份凭证，必填
+}
+
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "userid": 0,           //用户id
+    "username": "string",  // 用户名
+    "sick": [],             // 疾病信息，数组类型（List）
+    "taboo": [],            // 忌口信息，数组类型（List）
+    "img": "string"        // 更新后头像图片URL，字符串类型
+  }
+}
+```
+
+**错误响应**:
+```json
+{
+  "code": 400,
+  "message": "查询失败",
   "data": null
 }
 ```
@@ -277,9 +316,8 @@
 |--------------|-------------|-------------|-----------------|----------|
 | `normal` | 无特殊含义 | 图片base64字符串 | 图片MIME类型 | 普通AI对话 |
 | `food_analysis` | 餐食类型：`breakfast`/`lunch`/`dinner` | 图片base64字符串 | 图片MIME类型 | 三餐分析 |
-| `snack_analysis` | 零食类型：`饮品`/`袋装零食` | 零食名称 | 零食数量（克/毫升） | 零食分析 |
-| `medication_reminder` | 无特殊含义 | 无特殊含义 | 无特殊含义 | 用药提醒（特殊处理） |
-| `report_analysis` | 无特殊含义 | 图片base64字符串 | 图片MIME类型 | 报告识别（开发中） |
+| `snack_analysis` | 零食类型：`饮品`/`袋装零食` | 零食名称 | 零食数量 | 零食分析 |
+| `report_analysis` | 无特殊含义 | 图片base64字符串 | 图片MIME类型 | 报告识别 |
 
 **响应示例**:
 ```json
@@ -331,7 +369,8 @@
         "sequence": 1,
         "functionType": "NORMAL",
         "createTime": "2024-01-01T10:00:00",
-        "deleteFlag": 0
+        "deleteFlag": 0,
+        "img": "string" //图片的url
       },
       {
         "id": 790,
@@ -365,7 +404,7 @@
 Authorization: Bearer <token>
 ```
 
-Token格式：`user_id|#|username|#|avatar_base64` 的Base64编码
+Token格式：`user_idBase64|#|usernameBase64` 的编码
 
 ### 3.2 功能类型详解
 
@@ -375,7 +414,6 @@ Token格式：`user_id|#|username|#|avatar_base64` 的Base64编码
 - **参数说明**:
   - `content`: 用户的问题或描述
   - `img`: 可选，图片的base64编码
-  - `mimeType`: 可选，图片的MIME类型（如 `image/jpeg`）
 
 #### 3.2.2 三餐分析 (`food_analysis`)
 
@@ -384,7 +422,6 @@ Token格式：`user_id|#|username|#|avatar_base64` 的Base64编码
   - `role`: 餐食类型，必须为 `breakfast`、`lunch`、`dinner` 之一
   - `content`: 食物名称描述
   - `img`: 可选，食物图片的base64编码
-  - `mimeType`: 可选，图片的MIME类型
 
 **AI分析内容**:
 - 结合用户近3天的饮食记录
@@ -412,18 +449,16 @@ Token格式：`user_id|#|username|#|avatar_base64` 的Base64编码
 
 #### 3.2.4 报告识别 (`report_analysis`)
 
-- **状态**: 开发中
 - **用途**: 识别健康报告图片
 - **参数说明**:
   - `img`: 报告图片的base64编码
-  - `mimeType`: 图片的MIME类型
 
 ### 3.3 图片处理
 
 对于支持图片上传的接口，图片处理规则：
 
 1. **图片格式**: 支持 `image/jpeg`、`image/png` 等常见格式
-2. **图片大小**: 建议不超过5MB
+2. **图片大小**: 建议不超过10MB
 3. **存储位置**: 服务器保存到 `src/main/resources/img` 目录
 4. **返回**: 返回图片的访问URL
 

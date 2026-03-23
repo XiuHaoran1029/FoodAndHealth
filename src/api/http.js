@@ -2,13 +2,13 @@ import axios from 'axios'
 import router from '@/router'
 
 const http = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: 'http://55f400bd.r9.cpolar.top',
   timeout: 120000
 })
 
 // 请求拦截器：自动附加 Token
 http.interceptors.request.use(config => {
-  const token = resultToken(localStorage.getItem('token'))
+  const token =localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -31,23 +31,5 @@ http.interceptors.response.use(
     return Promise.reject(err)
   }
 )
-
-function resultToken(rawToken) {
-
-    const decodedOuter = rawToken;
-
-    const SEPARATOR = '|#|';
-    if(decodedOuter == null){
-        console.log("错误");
-        return null;
-    }
-    const parts = decodedOuter.split(SEPARATOR);
-
-    if (parts.length !== 3) {
-      throw new Error(`Token 格式错误：期望 3 个部分，实际得到 ${parts.length}`);
-    }
-
-    return parts[0]+"|#|"+parts[1];
-}
 
 export default http

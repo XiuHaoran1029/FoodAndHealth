@@ -6,10 +6,9 @@
     "webContentsDebuggingEnabled": true
   },
   "server": {
+    "androidScheme": "http",
     "cleartext": true,
-    "allowNavigation": [
-      "*"
-    ]
+    "allowNavigation": ["*"]
   },
   "plugins": {
     "SplashScreen": {

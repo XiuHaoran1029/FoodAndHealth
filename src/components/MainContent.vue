@@ -102,7 +102,6 @@ function scrollToBottom() {
 
 // 加载消息
 async function loadMessages(conversationId) {
-  if (!conversationId) return
   console.log('[loadMessages] conversationId:', conversationId)
   
   if (!conversationId || conversationId <= 0) {

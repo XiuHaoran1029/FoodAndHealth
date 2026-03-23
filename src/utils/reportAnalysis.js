@@ -3,7 +3,7 @@ import {sendMessage} from "@/api/message.js";
 import { useUserStore } from '@/store/user'
 import {createConversation, getConversationList} from "@/api/conversation.js";
 import router from "@/router/index.js";
-import {showToast} from "vant";
+import { showToast, showLoadingToast, closeToast } from "vant";
 
 const userStore = useUserStore()
 
@@ -158,11 +158,19 @@ export async function sendReport() {
     try {
         console.log('[ReportAnalysis] 开始报告分析流程')
         
+        // 显示加载弹窗
+        showLoadingToast({
+            message: '正在分析报告，请稍候...',
+            duration: 0,
+            forbidClick: true
+        });
+
         // 1. 拍照或选择图片
         const image = await takePicture({ source: 'prompt' });
         
         if (!image) {
             console.log('[ReportAnalysis] 用户取消了图片选择');
+            closeToast();
             return;
         }
 
@@ -173,6 +181,7 @@ export async function sendReport() {
         if (!base64) {
             console.error('[ReportAnalysis] 图片转换失败，base64为空');
             showToast('图片转换失败，请重试');
+            closeToast();
             return;
         }
 
@@ -208,6 +217,7 @@ export async function sendReport() {
         
         // 7. 显示成功提示
         showToast('分析完成，正在等待回复...');
+        closeToast();
 
     } catch (err) {
         console.error('[ReportAnalysis] 上传失败:', err);
@@ -218,5 +228,6 @@ export async function sendReport() {
             status: err?.response?.status
         });
         showToast('分析失败，请重试');
+        closeToast();
     }
 }
